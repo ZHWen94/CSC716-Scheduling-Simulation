@@ -1,0 +1,44 @@
+CSC716 Project Topic#1: Simulation CPU Scheduling Algorithms Comparison
+
+This project is write in Python 3.11 and compilable to a executable exe file by pyinstaller, the following documents has compile instruction if you want to compile it by yourself.
+==========================================================================
+Directorys explanation:
+
+Dataset:
+The dataset directory store the generate input file from the program. 
+
+Logs:
+The default logs directory store the output file, you change logs saving directory by using the setlogpath command.
+
+Source:
+The source directory store the python source code of this program.
+Main.py - The main class with basic command system for the program
+Process.py - A class file for a process object
+Scheduler.py - A class file for a scheduler object
+ProcessGen.py - A module to generate a random input file.
+==========================================================================
+Avaliable Program Command:
+
+sim [flags] < [input file dir]: Run simulation with specified algorithm. The default input file directory is the Dataset folder, you can simply type the file name without actual directory to open a input file in it.
+ -d: Enable detalied mode, to show all process state before and after simulation.
+ -v: Enable verbose mode, to show cpu action during simulation.
+ -a [algorithm] [quantum time]: Select algorithm (fcfs, sjf, srtn, rr) to run. You can select mulitple algorithm at once.
+
+gen [file name]: Generate a random data set file in Dataset folder. If file name is not provided, the file will generate as "#default_process_data.txt"
+
+ls: Show all dataset file currently stored in the dataset folder.
+
+setlogpath [dir]: Change the directory to save the output log files.
+
+exit: Exit the program.
+==========================================================================
+Compile Instruction (For Windows):
+Before started, please make sure a Python 3.11 enviroment is installed in your PC and the enviroment variable is setuped. Then run the following command to install the pyinstaller module:
+
+pip install pyinstaller
+
+Then use cd command to go into the Source folder of this program. Then run the following command:
+
+pyinstaller --onefile Main.py
+
+Once the command is complete running, a dist folder will show up in the Source folder and the compiled executable will be in there.
