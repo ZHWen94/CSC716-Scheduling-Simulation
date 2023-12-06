@@ -20,11 +20,11 @@ class Processes(object):
         self.burstList = []
         self.curMaxCPUTime = 0
         self.curCPUTime = 0
+        self.curMaxIOTime = 0
+        self.curIOTime = 0
+        self.totalIOTime = 0
         self.executeTime = 0
-        self.idleTime = 0
-        self.finish = False
         self.finishTime = 0
-        pass
 
     # Execute functions (Ususally called on running simulations)
     # Function to execute process with specify quantum time
@@ -32,10 +32,11 @@ class Processes(object):
         if self.curCPUTime > 0:
             self.executeTime += 1
             self.curCPUTime -= 1
-    
-    # Function to add idle when this process is waiting in readay qeuen
-    def idle(self):
-        self.idleTime += 1
+
+    def io(self):
+        if self.curIOTime > 0:
+            self.curIOTime -= 1
+            self.totalIOTime += 1
     
     # Function to go to next burst when current burst done (Ususally called on running simulations)
     def goToNextBurst(self):
@@ -43,9 +44,11 @@ class Processes(object):
         if self.curBurstTime < self.burstTime:
             self.curMaxCPUTime = self.burstList[self.curBurstTime][CPU_TIME]
             self.curCPUTime = self.curMaxCPUTime
+            if self.curBurstTime < self.burstTime - 1:
+                self.curMaxIOTime = self.burstList[self.curBurstTime][IO_TIME]
+                self.curIOTime = self.curMaxIOTime
         else:
-            self.finish = True
-        return self.finish
+            self.finish = True        
 
     # Function to Add a new burst data (Usually called when creating new process)
     def addBurst(self, burstNum, CPUTime, IOTime):
@@ -53,6 +56,8 @@ class Processes(object):
         if len(self.burstList) == 1:
             self.curMaxCPUTime = CPUTime
             self.curCPUTime = CPUTime
+            self.curMaxCPUTime = IOTime
+            self.curIOTime = IOTime
 
     # Getter and Setter
     def setFinishTime(self, finishTime):
@@ -81,9 +86,18 @@ class Processes(object):
 
     def getCurCPUTime(self):
         return self.curCPUTime
+    
+    def getCurIOTime(self):
+        return self.curIOTime
+
+    def isCurBurstFinish(self):
+        return self.curCPUTime <= 0
+    
+    def isLastBurst(self):
+        return self.curBurstTime == self.burstTime - 1
 
     def isFinish(self):
-        return self.finish
+        return self.curBurstTime >= self.burstTime
     
     def getTAT(self):
         return self.finishTime - self.arraivalTime
@@ -106,9 +120,11 @@ class Processes(object):
     def showFinishState(self, logFunct):
         logFunct("Process# {id}:".format(id=self.id+1))
         logFunct("Arrival Time: {arrivalTime}"
-              .format(arrivalTime=self.arraivalTime))
+                .format(arrivalTime=self.arraivalTime))
         logFunct("Service Time: {executeTime}"
-              .format(executeTime=self.executeTime))
+                .format(executeTime=self.executeTime))
+        logFunct("I/O Time: {totalIOTime}"
+                .format(totalIOTime=self.totalIOTime))
         logFunct("Finish Time: {finishTime}"
-              .format(finishTime=self.finishTime))
+                .format(finishTime=self.finishTime))
         logFunct("TAT: {TAT}".format(TAT=self.getTAT()))

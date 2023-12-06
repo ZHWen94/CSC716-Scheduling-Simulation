@@ -108,6 +108,7 @@ def sim(txt):
                 print("Error: Invalid flag in index {i} \"{j}\"".format(i=i, j=flags[i]))
                 isCmdInvalid = True
             i += 1
+        # If command is valid, start create and run schedulers
         if not isCmdInvalid:
             schedulerList = []
             schedulerName = ""

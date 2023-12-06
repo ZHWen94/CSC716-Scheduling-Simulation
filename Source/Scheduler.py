@@ -25,21 +25,10 @@ class Scheduler(object):
     def __init__(self, name, logFile, filePath, isDetailedMode, isVerboseMode, selectedAlgorithm, quantumTime):
         # Scheduler name 
         self.name = name
+        # Bool to control simulation run state
+        self.isRun = True
         # Log File to record output
         self.logFile = logFile
-        # Algorithm Dict
-        self.algorithmDict = {
-            "fcfs": self.fcfs,
-            "sjf": self.sjf,
-            "srtn": self.srtn,
-            "rr": self.rr,
-        }
-        self.algorithmName = {
-            "fcfs": "First Come First Serve",
-            "sjf": "Shortest Job First",
-            "srtn": "Shortest Remaining Time Next",
-            "rr": "Roundrobin",
-        }
         # Timer for scheduler
         self.idleTime = 0
         self.executeTime = 0
@@ -49,7 +38,8 @@ class Scheduler(object):
         self.state = IDLE
         # Ready and finish qeuen
         self.jobList = []
-        self.waitList = []
+        self.waitQeuen = []
+        self.readyQeuen = []
         self.finishedJobList = []
         # The process currently in progress
         self.curJob = None
@@ -60,6 +50,13 @@ class Scheduler(object):
         self.selectedAlgorithm = selectedAlgorithm
         self.quantumTime = quantumTime
         self.curQuantumTime = quantumTime
+        # Algorithm Name Dict
+        self.algorithmName = {
+            "fcfs": "First Come First Serve",
+            "sjf": "Shortest Job First",
+            "srtn": "Shortest Remaining Time Next",
+            "rr": "Roundrobin(Quantum: {quantumTime})".format(quantumTime=self.quantumTime),
+        }
         # Read and Input file into job list
         self.readFile(filePath)
         
@@ -142,18 +139,72 @@ class Scheduler(object):
                     # If is detailed mod, then Show job list
                     if self.isDetailedMode:
                         self.log("Jobs Info: ")
-                        self.log("==================================================")
                         for job in self.jobList:
+                            self.log("")
                             job.toString(self.log)
-                            self.log("==================================================")
+                        self.log("==================================================")
                     if self.isVerboseMode:
                         self.log(self.algorithmName[self.selectedAlgorithm])
-                    self.algorithmDict[self.selectedAlgorithm]()
+                    self.simulation()
                 elif confirm == "n":
                     isConfirmed = True
                     print("{name}: Simulation Aborted.".format(name=self.name))
         else:
             print("Unknown Error: Empty JobList, Simulation Aborted.")
+
+    # Simulation Function
+    def simulation(self):
+        print("{name}: Start Simulation...".format(name=self.name))
+        if self.isVerboseMode:
+            print("==================================================")
+        while self.isRun:
+            # Time unit start
+            if self.checkJobArrival():
+                if self.selectedAlgorithm == "sjf":
+                    self.readyQeuen.sort(key=operator.attrgetter('curMaxCPUTime'))
+                elif self.selectedAlgorithm == "srtn":
+                    self.readyQeuen.sort(key=operator.attrgetter('curMaxCPUTime'))
+                    try:
+                        if self.curJob.getCurCPUTime() > self.readyQeuen[0].getCurCPUTime():
+                            self.preemption()
+                    except AttributeError:
+                        pass
+            self.checkAvaiableJob()
+            # Time unit in-running
+            self.timeForward()
+            # Time unit end
+            self.doIO()
+            self.executeTime += 1
+            if self.state == WORKING:
+                self.chekcCurJobFinish()
+            elif self.state == CONTEXT_SWITCH:
+                self.checkContextSwitchFinish()
+            self.checkSimFinish()
+            # if self.isVerboseMode:
+            #     self.log("==================================================")
+        print("{name}:".format(name=self.name))
+        self.log("{algorithmName}".format(algorithmName=self.algorithmName[self.selectedAlgorithm]))
+        self.log("Total Time required is {executeTime} time units"
+              .format(executeTime=self.executeTime))
+        self.log("CPU Utilization is {CPUUtilization: .2%}"
+              .format(CPUUtilization=self.getCPUUtilization()))
+        if self.isDetailedMode:
+            for job in self.finishedJobList:
+                self.log("")
+                job.showFinishState(self.log)
+        self.log("==================================================")
+
+    # Function to do IO for jobs in wait qeuen
+    def doIO(self):
+        for job in self.waitQeuen:
+            job.io()
+            if job.getCurIOTime() <= 0:
+                job.goToNextBurst()
+                if self.isVerboseMode:
+                    self.log("At time unit {executeTime}: Job# {jobId} finish IO, and moving from wait to ready qeuen."
+                        .format(executeTime=self.executeTime, jobId=job.getId()))
+                self.readyQeuen.append(job)
+                self.waitQeuen.remove(job)
 
     # Function to check a new job arrive and put into wait list
     def checkJobArrival(self):
@@ -161,9 +212,9 @@ class Scheduler(object):
         while len(self.jobList) > 0:
             if self.jobList[0].getArrivalTime() == self.executeTime:
                 if self.isVerboseMode:
-                    self.log("At time unit# {executeTime}: Job# {jobId} arrived, and state in the wait list."
+                    self.log("At time unit# {executeTime}: Job# {jobId} arrived, and moving in the ready qeuen."
                         .format(executeTime=self.executeTime, jobId=self.jobList[0].getId()))
-                self.waitList.append(self.jobList.pop(0))
+                self.readyQeuen.append(self.jobList.pop(0))
                 isNewJobArrived = True
             if len(self.jobList) <= 0:
                 return isNewJobArrived
@@ -172,17 +223,48 @@ class Scheduler(object):
 
     # Function to check if cpu is idle and job is in wait list
     def checkAvaiableJob(self):
-        if self.state == IDLE and len(self.waitList) > 0:
+        if self.state == IDLE and len(self.readyQeuen) > 0:
             if self.isVerboseMode:
-                self.log("At time unit {executeTime}: Job# {jobId} moving from wait to execute."
-                      .format(executeTime=self.executeTime, jobId=self.waitList[0].getId()))
-            self.curJob = self.waitList.pop(0)
+                self.log("At time unit {executeTime}: Job# {jobId} moving from readay qeuen to execute."
+                      .format(executeTime=self.executeTime, jobId=self.readyQeuen[0].getId()))
+            self.curJob = self.readyQeuen.pop(0)
             self.state = WORKING
+
+    # Function run the current time unit
+    def timeForward(self):
+        # Time unit running
+        if self.state == IDLE:
+            # if self.isVerboseMode:
+            #     self.log("At time unit# {executeTime}: CPU in idle."
+            #           .format(executeTime=self.executeTime))
+            self.idleTime += 1
+        elif self.state == CONTEXT_SWITCH:
+            # if self.isVerboseMode:
+            #     self.log("At time unit# {executeTime}: Context switch occuring, remaining time: {curSwitchTime}"
+            #           .format(executeTime=self.executeTime, curSwitchTime=self.curSwitchTime))
+            self.curSwitchTime -= 1
+        elif self.state == WORKING:
+            # if self.isVerboseMode:
+            #     self.log("At time unit# {executeTime}: Job# {jobId} executing in burst# {curBurstTime}: CPU time remain: {CPUTime}"
+            #         .format(executeTime=self.executeTime, jobId=self.curJob.getId(), curBurstTime=self.curJob.getCurBurstTime(),
+            #                 CPUTime=self.curJob.getCurCPUTime()))
+            self.curJob.execute()
+            if self.selectedAlgorithm == "rr":
+                self.curQuantumTime -= 1
+                if self.curQuantumTime <= 0:
+                    self.preemption()
 
     # Function to check a current job is done
     def chekcCurJobFinish(self):
-        if self.state == WORKING and self.curJob.getCurCPUTime() <= 0:
-            if self.curJob.goToNextBurst():
+        if self.state == WORKING and self.curJob.isCurBurstFinish():
+            if not self.curJob.isLastBurst():
+                if self.isVerboseMode:
+                    self.log("At time unit# {executeTime}: Job# {jobId} finish Burst# {burstNum}"
+                        .format(executeTime=self.executeTime, jobId=self.curJob.getId(), burstNum=self.curJob.getCurBurstTime()))
+                self.waitQeuen.append(self.curJob)
+                self.curJob = None
+                self.contextSwitch()
+            else:
                 if self.isVerboseMode:
                     self.log("At time unit# {executeTime}: Job# {jobId} finish."
                         .format(executeTime=self.executeTime, jobId=self.curJob.getId()))
@@ -190,19 +272,21 @@ class Scheduler(object):
                 self.curJob.setFinishTime(self.executeTime)
                 self.curJob = None
                 self.contextSwitch()
-            else:
-                if self.isVerboseMode:
-                    self.log("At time unit# {executeTime}: Job# {jobId} finish Burst# {burstNum}"
-                        .format(executeTime=self.executeTime, jobId=self.curJob.getId(), burstNum=self.curJob.getCurBurstTime()))
-                self.waitList.append(self.curJob)
-                self.contextSwitch()
 
+    # Function to check simulation finish
+    def checkSimFinish(self):
+        if self.state == IDLE and len(self.readyQeuen) == 0 and len(self.jobList) == 0:
+            self.log("==================================================")
+            print("{name}: Simulation Ended.".format(name=self.name))
+            self.isRun = False
+
+    # Action Function
     # Function to start a preemtion
     def preemption(self):
         if self.isVerboseMode:
             self.log("At time unit# {executeTime}: Preemption occured, Job# {jobId} move to wait."
                   .format(executeTime=self.executeTime, jobId=self.curJob.getId()))
-        self.waitList.append(self.curJob)
+        self.readyQeuen.append(self.curJob)
         self.curJob = None
         self.contextSwitch()
         pass
@@ -215,6 +299,7 @@ class Scheduler(object):
         self.curSwitchTime = self.switchTime
         self.state = CONTEXT_SWITCH
     
+    # Function to check context switch finish
     def checkContextSwitchFinish(self):
         if self.curSwitchTime <= 0:
             if self.isDetailedMode:
@@ -223,212 +308,6 @@ class Scheduler(object):
             self.state = IDLE
             self.curQuantumTime = self.quantumTime
 
-    # Function to check simulation finish
-    def isSimFinish(self):
-        return self.state == IDLE and len(self.waitList) == 0 and len(self.jobList) == 0
-    
     # Function to calculate cpu utilization
     def getCPUUtilization(self):
         return (self.executeTime - self.idleTime) / self.executeTime
-
-    # Scheduling algorithms functions
-    # First come first serve
-    def fcfs(self):
-        print("{name}: Start Simulation...".format(name=self.name))
-        print("==================================================")
-        while True:
-            # Time unit start
-            self.checkJobArrival()
-            self.checkAvaiableJob()
-            # Time unit in-running
-            if self.state == IDLE:
-                # if self.isVerboseMode:
-                #     self.log("At time unit# {executeTime}: CPU in idle."
-                #           .format(executeTime=self.executeTime))
-                self.idleTime += 1
-            elif self.state == CONTEXT_SWITCH:
-                # if self.isVerboseMode:
-                #     self.log("At time unit# {executeTime}: Context switch occuring, remaining time: {curSwitchTime}"
-                #           .format(executeTime=self.executeTime, curSwitchTime=self.curSwitchTime))
-                self.curSwitchTime -= 1
-                self.checkContextSwitchFinish()
-            elif self.state == WORKING:
-                # if self.isVerboseMode:
-                #     self.log("At time unit# {executeTime}: Job# {jobId} executing in burst# {curBurstTime}: CPU time remain: {CPUTime}"
-                #         .format(executeTime=self.executeTime, jobId=self.curJob.getId(), curBurstTime=self.curJob.getCurBurstTime(),
-                #                 CPUTime=self.curJob.getCurCPUTime()))
-                self.curJob.execute()
-            # Time unit end
-            self.chekcCurJobFinish()
-            if self.isSimFinish():
-                if self.isVerboseMode:
-                    print("==================================================")
-                print("{name}: Simulation Ended.".format(name=self.name))
-                break
-            self.executeTime += 1
-            # if self.isVerboseMode:
-            #     self.log("==================================================")
-        print("{name}:".format(name=self.name))
-        self.log("First Come First Serve:")
-        self.log("Total Time required is {executeTime} time units"
-              .format(executeTime=self.executeTime))
-        self.log("CPU Utilization is {CPUUtilization}"
-              .format(CPUUtilization=self.getCPUUtilization()))
-        if self.isDetailedMode:
-            for job in self.finishedJobList:
-                self.log("")
-                job.showFinishState(self.log)
-        self.log("==================================================")
-
-    # Shortest job first
-    def sjf(self):
-        print("{name}: Start Simulation...".format(name=self.name))
-        print("==================================================")
-        while True:
-            # Time unit start
-            if self.checkJobArrival():
-                self.waitList.sort(key=operator.attrgetter('curMaxCPUTime'))
-            self.checkAvaiableJob()
-            # Time unit running
-            if self.state == IDLE:
-                # if self.isVerboseMode:
-                #     self.log("At time unit# {executeTime}: CPU in idle."
-                #           .format(executeTime=self.executeTime))
-                self.idleTime += 1
-            elif self.state == CONTEXT_SWITCH:
-                # if self.isVerboseMode:
-                #     self.log("At time unit# {executeTime}: Context switch occuring, remaining time: {curSwitchTime}"
-                #           .format(executeTime=self.executeTime, curSwitchTime=self.curSwitchTime))
-                self.curSwitchTime -= 1
-                self.checkContextSwitchFinish()
-            elif self.state == WORKING:
-                # if self.isVerboseMode:
-                #     self.log("At time unit# {executeTime}: Job# {jobId} executing in burst# {curBurstTime}: CPU time remain: {CPUTime}"
-                #         .format(executeTime=self.executeTime, jobId=self.curJob.getId(), curBurstTime=self.curJob.getCurBurstTime(),
-                #                 CPUTime=self.curJob.getCurCPUTime()))
-                self.curJob.execute()
-            # Time unit end
-            self.chekcCurJobFinish()
-            if self.isSimFinish():
-                if self.isVerboseMode:
-                    print("==================================================")
-                print("{name}: Simulation Ended.".format(name=self.name))
-                break
-            self.executeTime += 1
-            # if self.isVerboseMode:
-            #     self.log("==================================================")
-        print("{name}:".format(name=self.name))
-        self.log("Shorest Job First:")
-        self.log("Total Time required is {executeTime} time units"
-              .format(executeTime=self.executeTime))
-        self.log("CPU Utilization is {CPUUtilization}"
-              .format(CPUUtilization=self.getCPUUtilization()))
-        if self.isDetailedMode:
-            for job in self.finishedJobList:
-                self.log("")
-                job.showFinishState(self.log)
-        self.log("==================================================")
-
-    # Shortest remain time next
-    def srtn(self):
-        print("{name}: Start Simulation...".format(name=self.name))
-        print("==================================================")
-        while True:
-            # Time unit start
-            if self.checkJobArrival():
-                self.waitList.sort(key=operator.attrgetter('curMaxCPUTime'))
-            self.checkAvaiableJob()
-            # Time unit running
-            if self.state == IDLE:
-                # if self.isVerboseMode:
-                #     self.log("At time unit# {executeTime}: CPU in idle."
-                #           .format(executeTime=self.executeTime))
-                self.idleTime += 1
-            elif self.state == CONTEXT_SWITCH:
-                # if self.isVerboseMode:
-                #     self.log("At time unit# {executeTime}: Context switch occuring, remaining time: {curSwitchTime}"
-                #           .format(executeTime=self.executeTime, curSwitchTime=self.curSwitchTime))
-                self.curSwitchTime -= 1
-                self.checkContextSwitchFinish()
-            elif self.state == WORKING:
-                # if self.isVerboseMode:
-                #     self.log("At time unit# {executeTime}: Job# {jobId} executing in burst# {curBurstTime}: CPU time remain: {CPUTime}"
-                #         .format(executeTime=self.executeTime, jobId=self.curJob.getId(), curBurstTime=self.curJob.getCurBurstTime(),
-                #                 CPUTime=self.curJob.getCurCPUTime()))
-                self.curJob.execute()
-                if len(self.waitList) > 0:
-                    if self.curJob.getCurCPUTime() > self.waitList[0].getCurCPUTime():
-                        self.preemption()
-            # Time unit end
-            # Time unit end
-            self.chekcCurJobFinish()
-            if self.isSimFinish():
-                if self.isVerboseMode:
-                    print("==================================================")
-                print("{name}: Simulation Ended.".format(name=self.name))
-                break
-            self.executeTime += 1
-            # if self.isVerboseMode:
-            #     self.log("==================================================")
-        print("{name}:".format(name=self.name))
-        self.log("Shorest Remaining Time Next:")
-        self.log("Total Time required is {executeTime} time units"
-              .format(executeTime=self.executeTime))
-        self.log("CPU Utilization is {CPUUtilization}"
-              .format(CPUUtilization=self.getCPUUtilization()))
-        if self.isDetailedMode:
-            for job in self.finishedJobList:
-                self.log("")
-                job.showFinishState(self.log)
-        self.log("==================================================")
-
-    # Round-Robin
-    def rr(self):
-        print("{name}: Start Simulation...".format(name=self.name))
-        print("==================================================")
-        while True:
-            # Time unit start
-            self.checkJobArrival()
-            self.checkAvaiableJob()
-            # Time unit running
-            if self.state == IDLE:
-                # if self.isVerboseMode:
-                #     self.log("At time unit# {executeTime}: CPU in idle."
-                #           .format(executeTime=self.executeTime))
-                self.idleTime += 1
-            elif self.state == CONTEXT_SWITCH:
-                # if self.isVerboseMode:
-                #     self.log("At time unit# {executeTime}: Context switch occuring, remaining time: {curSwitchTime}"
-                #           .format(executeTime=self.executeTime, curSwitchTime=self.curSwitchTime))
-                self.curSwitchTime -= 1
-                self.checkContextSwitchFinish()
-            elif self.state == WORKING:
-                # if self.isVerboseMode:
-                #     self.log("At time unit# {executeTime}: Job# {jobId} executing in burst# {curBurstTime}: CPU time remain: {CPUTime}"
-                #         .format(executeTime=self.executeTime, jobId=self.curJob.getId(), curBurstTime=self.curJob.getCurBurstTime(),
-                #                 CPUTime=self.curJob.getCurCPUTime()))
-                self.curJob.execute()
-                self.curQuantumTime -= 1
-                if self.curQuantumTime <= 0:
-                        self.preemption()
-            # Time unit end
-            self.chekcCurJobFinish()
-            if self.isSimFinish():
-                if self.isVerboseMode:
-                    print("==================================================")
-                print("{name}: Simulation Ended.".format(name=self.name))
-                break
-            self.executeTime += 1
-            # if self.isVerboseMode:
-            #     self.log("==================================================")
-        print("{name}:".format(name=self.name))
-        self.log("Round-Robin (Quantum {quantumTime}):".format(quantumTime=self.quantumTime))
-        self.log("Total Time required is {executeTime} time units"
-              .format(executeTime=self.executeTime))
-        self.log("CPU Utilization is {CPUUtilization}"
-              .format(CPUUtilization=self.getCPUUtilization()))
-        if self.isDetailedMode:
-            for job in self.finishedJobList:
-                self.log("")
-                job.showFinishState(self.log)
-        self.log("==================================================")

@@ -19,9 +19,9 @@ def gen(fileName):
     filePath = "{defaultDataPath}\\{fileName}.txt".format(defaultDataPath=DEFAULT_DATA_DIR, fileName=fileName)
     f = open(filePath, "w")
     # Generate first line of input file
-    processNumber = 50
+    processNum = 50
     switchTime = 5
-    f.writelines("{processNumber} {switchTime}\n".format(processNumber=processNumber, switchTime=switchTime))
+    f.writelines("{processNumber} {switchTime}\n".format(processNumber=processNum, switchTime=switchTime))
     # Initial arrival time
     arrivalTime = 0
     # Loop to generate processes
