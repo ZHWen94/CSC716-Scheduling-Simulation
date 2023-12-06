@@ -191,7 +191,7 @@ def main():
     # Show welcome msg
     print("CSC716 Project Topic #1: SIMULATION: CPU SCHEDULING ALGORITHMS COMPARISON")
     print("Author: Zehui Wen, Meng Meng, Dylan Contractor.")
-    print("Version 1.0")
+    print("Version 1.1")
     print("See description.txt or type \"help\" for more information.")
     print("All output log with be saved in \"{logPath}\"".format(logPath=logPath))
     print("")
