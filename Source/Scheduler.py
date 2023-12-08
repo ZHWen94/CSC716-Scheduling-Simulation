@@ -36,10 +36,10 @@ class Scheduler(object):
         self.switchTime = 0
         self.curSwitchTime = 0
         self.state = IDLE
-        # Ready and finish qeuen
+        # Ready and finish queue
         self.jobList = []
-        self.waitQeuen = []
-        self.readyQeuen = []
+        self.waitQueue = []
+        self.readyQueue = []
         self.finishedJobList = []
         # The process currently in progress
         self.curJob = None
@@ -127,7 +127,7 @@ class Scheduler(object):
 
     # Function to start the simulation
     def runSimulation(self):
-        # Check if error occured in job list
+        # Check if error occurred in job list
         if len(self.jobList) > 0:
             # Confrim run or not from user
             isConfirmed = False
@@ -161,11 +161,11 @@ class Scheduler(object):
             # Time unit start
             if self.checkJobArrival():
                 if self.selectedAlgorithm == "sjf":
-                    self.readyQeuen.sort(key=operator.attrgetter('curMaxCPUTime'))
+                    self.readyQueue.sort(key=operator.attrgetter('curMaxCPUTime'))
                 elif self.selectedAlgorithm == "srtn":
-                    self.readyQeuen.sort(key=operator.attrgetter('curMaxCPUTime'))
+                    self.readyQueue.sort(key=operator.attrgetter('curMaxCPUTime'))
                     try:
-                        if self.curJob.getCurCPUTime() > self.readyQeuen[0].getCurCPUTime():
+                        if self.curJob.getCurCPUTime() > self.readyQueue[0].getCurCPUTime():
                             self.preemption()
                     except AttributeError:
                         pass
@@ -194,17 +194,17 @@ class Scheduler(object):
                 job.showFinishState(self.log)
         self.log("==================================================")
 
-    # Function to do IO for jobs in wait qeuen
+    # Function to do IO for jobs in wait queue
     def doIO(self):
-        for job in self.waitQeuen:
+        for job in self.waitQueue:
             job.io()
             if job.getCurIOTime() <= 0:
                 job.goToNextBurst()
                 if self.isVerboseMode:
-                    self.log("At time unit {executeTime}: Job# {jobId} finish IO, and moving from wait to ready qeuen."
+                    self.log("At time unit {executeTime}: Job# {jobId} finish IO, and moving from wait to ready queue."
                         .format(executeTime=self.executeTime, jobId=job.getId()))
-                self.readyQeuen.append(job)
-                self.waitQeuen.remove(job)
+                self.readyQueue.append(job)
+                self.waitQueue.remove(job)
 
     # Function to check a new job arrive and put into wait list
     def checkJobArrival(self):
@@ -212,9 +212,9 @@ class Scheduler(object):
         while len(self.jobList) > 0:
             if self.jobList[0].getArrivalTime() == self.executeTime:
                 if self.isVerboseMode:
-                    self.log("At time unit# {executeTime}: Job# {jobId} arrived, and moving in the ready qeuen."
+                    self.log("At time unit# {executeTime}: Job# {jobId} arrived, and moving in the ready queue."
                         .format(executeTime=self.executeTime, jobId=self.jobList[0].getId()))
-                self.readyQeuen.append(self.jobList.pop(0))
+                self.readyQueue.append(self.jobList.pop(0))
                 isNewJobArrived = True
             if len(self.jobList) <= 0:
                 return isNewJobArrived
@@ -223,11 +223,11 @@ class Scheduler(object):
 
     # Function to check if cpu is idle and job is in wait list
     def checkAvaiableJob(self):
-        if self.state == IDLE and len(self.readyQeuen) > 0:
+        if self.state == IDLE and len(self.readyQueue) > 0:
             if self.isVerboseMode:
-                self.log("At time unit {executeTime}: Job# {jobId} moving from readay qeuen to execute."
-                      .format(executeTime=self.executeTime, jobId=self.readyQeuen[0].getId()))
-            self.curJob = self.readyQeuen.pop(0)
+                self.log("At time unit {executeTime}: Job# {jobId} moving from ready queue to execute."
+                      .format(executeTime=self.executeTime, jobId=self.readyQueue[0].getId()))
+            self.curJob = self.readyQueue.pop(0)
             self.state = WORKING
 
     # Function run the current time unit
@@ -261,7 +261,7 @@ class Scheduler(object):
                 if self.isVerboseMode:
                     self.log("At time unit# {executeTime}: Job# {jobId} finish Burst# {burstNum}"
                         .format(executeTime=self.executeTime, jobId=self.curJob.getId(), burstNum=self.curJob.getCurBurstTime()))
-                self.waitQeuen.append(self.curJob)
+                self.waitQueue.append(self.curJob)
                 self.curJob = None
                 self.contextSwitch()
             else:
@@ -275,7 +275,7 @@ class Scheduler(object):
 
     # Function to check simulation finish
     def checkSimFinish(self):
-        if self.state == IDLE and len(self.readyQeuen) == 0 and len(self.jobList) == 0:
+        if self.state == IDLE and len(self.readyQueue) == 0 and len(self.jobList) == 0:
             self.log("==================================================")
             print("{name}: Simulation Ended.".format(name=self.name))
             self.isRun = False
@@ -284,9 +284,9 @@ class Scheduler(object):
     # Function to start a preemtion
     def preemption(self):
         if self.isVerboseMode:
-            self.log("At time unit# {executeTime}: Preemption occured, Job# {jobId} move to wait."
+            self.log("At time unit# {executeTime}: Preemption occurred, Job# {jobId} move to wait."
                   .format(executeTime=self.executeTime, jobId=self.curJob.getId()))
-        self.readyQeuen.append(self.curJob)
+        self.readyQueue.append(self.curJob)
         self.curJob = None
         self.contextSwitch()
         pass
@@ -294,7 +294,7 @@ class Scheduler(object):
     # Function to start a context switch
     def contextSwitch(self):
         if self.isDetailedMode:
-            self.log("At time unit# {executeTime}: Context switch occured."
+            self.log("At time unit# {executeTime}: Context switch occurred."
                 .format(executeTime=self.executeTime))
         self.curSwitchTime = self.switchTime
         self.state = CONTEXT_SWITCH

@@ -66,40 +66,43 @@ def sim(txt):
         isDetailedMode = False
         isVerboseMode = False
         selectedAlgorithms = []
+        #remove extra spaces in flags
+        flags = [i for i in flags if i != '']
         # Read flags
-        l = len(flags) - 1
+        l = len(flags)
         i = 1
-        while i < l:
+        while i < l and not isCmdInvalid:
             flag = flags[i]
             if(flag == "-d"):
                 isDetailedMode = True
             elif(flag == "-v"):
                 isVerboseMode = True
             elif(flag == "-a"):
-                # If -a is not the last element in flags, check next element
+                # while i is not the last element in flags, check next element
                 while(i != l - 1):
-                    curAlogorithm = flags[i + 1]
+                    i += 1
+                    curAlogrithm = flags[i]
                     quantumTime = 0 
-                    # If the next element is not another flag but a algorithm name, then set selected algorithm
-                    if not (curAlogorithm in SIM_FLAG_LIST):
-                        i += 1
-                        if(curAlogorithm in ALGORITHM_LIST):
-                            # If the selected algorithm is round robin, then set quantum time
-                            if(curAlogorithm == "rr" and i + 1 != l):
-                                if flags[i + 1].isnumeric():
-                                    quantumTime = int(flags[i + 1])
-                                else:
-                                    print("Error: Invalid Quantum Time in index {i} \"{j}\"".format(i=i, j=flags[i]))
-                                    isCmdInvalid = True
-                                i += 1
-                            if not isCmdInvalid:
-                                selectedAlgorithms.append([curAlogorithm, quantumTime])
-                        else:
-                            print("Error: Invalid Algorithm in index {i} \"{j}\"".format(i=i, j=flags[i]))
-                            isCmdInvalid = True
+                    # If the next element is an algorithm name, then set selected algorithm
+                    if(curAlogrithm in ALGORITHM_LIST):
+                        # If the selected algorithm is round robin, then set quantum time
+                        if(curAlogrithm == "rr" and i + 1 != l):
                             i += 1
-                            break
+                            if flags[i].isnumeric():
+                                quantumTime = int(flags[i])
+                            else:
+                                print("Error: Invalid Quantum Time in index {i} \"{j}\"".format(i=i, j=flags[i]))
+                                isCmdInvalid = True
+                                break
+                        if not isCmdInvalid:
+                            selectedAlgorithms.append([curAlogrithm, quantumTime])
+                    #else if statement is a flag take one step back (so outer while loop sees flag) and then break
+                    elif(curAlogrithm in SIM_FLAG_LIST):
+                        i -= 1
+                        break
                     else:
+                        print("Error: Invalid Algorithm in index {i} \"{j}\"".format(i=i, j=flags[i]))
+                        isCmdInvalid = True
                         break
                 if len(selectedAlgorithms) == 0:
                     print("Error: No algorithm selected.")
@@ -118,6 +121,9 @@ def sim(txt):
                                                                         timestamp=datetime.datetime.now().strftime('%Y%m%d%H%M%S'))
             # Create a new log file
             logFile = open(logFilePath, "w")
+            #if no -a flag set, add algorithms from project description.
+            if len(selectedAlgorithms) == 0 :
+                selectedAlgorithms = [["fcfs", 0], ["sjf", 0], ["srtn", 0], ['rr', 10], ['rr', 50], ['rr', 100]]
             # Create a scheduler object for each algorithm in list
             for algorithm in selectedAlgorithms:
                 if algorithm[ALGORITHM] != "rr":
