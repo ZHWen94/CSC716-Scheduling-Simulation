@@ -18,48 +18,39 @@ class Processes(object):
         self.burstTime = burstTime
         self.curBurstTime = 0
         self.burstList = []
-        self.curMaxCPUTime = 0
-        self.curCPUTime = 0
-        self.curMaxIOTime = 0
-        self.curIOTime = 0
+        self.remainCPUTime = 0
+        self.enterTime = 0
         self.totalIOTime = 0
         self.executeTime = 0
         self.finishTime = 0
-
-    # Execute functions (Ususally called on running simulations)
-    # Function to execute process with specify quantum time
-    def execute(self):
-        if self.curCPUTime > 0:
-            self.executeTime += 1
-            self.curCPUTime -= 1
-
-    def io(self):
-        if self.curIOTime > 0:
-            self.curIOTime -= 1
-            self.totalIOTime += 1
     
     # Function to go to next burst when current burst done (Ususally called on running simulations)
     def goToNextBurst(self):
         self.curBurstTime += 1
         if self.curBurstTime < self.burstTime:
-            self.curMaxCPUTime = self.burstList[self.curBurstTime][CPU_TIME]
-            self.curCPUTime = self.curMaxCPUTime
-            if self.curBurstTime < self.burstTime - 1:
-                self.curMaxIOTime = self.burstList[self.curBurstTime][IO_TIME]
-                self.curIOTime = self.curMaxIOTime
+            self.remainCPUTime = self.burstList[self.curBurstTime][CPU_TIME]
         else:
-            self.finish = True        
+            self.finish = True
 
     # Function to Add a new burst data (Usually called when creating new process)
     def addBurst(self, burstNum, CPUTime, IOTime):
         self.burstList.append([burstNum, CPUTime, IOTime])
         if len(self.burstList) == 1:
-            self.curMaxCPUTime = CPUTime
-            self.curCPUTime = CPUTime
-            self.curMaxCPUTime = IOTime
-            self.curIOTime = IOTime
+            self.remainCPUTime = CPUTime
 
     # Getter and Setter
+    def setEnterTime(self, enterTime):
+        self.enterTime = enterTime
+    
+    def minusCurCPUTime(self, deltaTime):
+        self.remainCPUTime -= deltaTime
+
+    def addTotalIOTime(self, deltaTime):
+        self.totalIOTime += deltaTime
+
+    def addExecuteTime(self, deltaTime):
+        self.executeTime += deltaTime
+
     def setFinishTime(self, finishTime):
         self.finishTime = finishTime
 
@@ -73,36 +64,27 @@ class Processes(object):
         return self.burstTime
     
     def getCurBurstTime(self):
-        return self.curBurstTime + 1
+        return self.curBurstTime
 
     def getRemainBurstTime(self):
         return self.burstTime - self.curBurstTime
-    
-    def getBurstList(self):
-        return self.burstList
-    
-    def getNextCPUTime(self):
-        return self.burstList[self.curBurstTime][CPU_TIME]
 
-    def getCurCPUTime(self):
-        return self.curCPUTime
+    def getRemainCUPTime(self):
+        return self.remainCPUTime
     
-    def getCurIOTime(self):
-        return self.curIOTime
+    def getIOTime(self):
+        return self.burstList[self.curBurstTime][IO_TIME]
 
-    def isCurBurstFinish(self):
-        return self.curCPUTime <= 0
+    def getEnterTime(self):
+        return self.enterTime
     
     def isLastBurst(self):
         return self.curBurstTime == self.burstTime - 1
-
-    def isFinish(self):
-        return self.curBurstTime >= self.burstTime
     
     def getTAT(self):
         return self.finishTime - self.arraivalTime
     
-    # Function to show basic info of process
+    # Function to show basic info of process (Called in detailed mode)
     def toString(self, logFunct):
         logFunct("Process# {id}:".format(id=self.id+1))
         logFunct("Arrival Time: {arrivalTime}, Burst Time: {burstTime}"
