@@ -101,9 +101,6 @@ def sim(txt):
                             break
                     else:
                         break
-                if len(selectedAlgorithms) == 0:
-                    print("Error: No algorithm selected.")
-                    isCmdInvalid = True
             else:
                 print("Error: Invalid flag in index {i} \"{j}\"".format(i=i, j=flags[i]))
                 isCmdInvalid = True
@@ -118,6 +115,9 @@ def sim(txt):
                                                                         timestamp=datetime.datetime.now().strftime('%Y%m%d%H%M%S'))
             # Create a new log file
             logFile = open(logFilePath, "w")
+            #if no -a flag set, add algorithms from project description.
+            if len(selectedAlgorithms) == 0 :
+                selectedAlgorithms = [["fcfs", 0], ["sjf", 0], ["srtn", 0], ['rr', 10], ['rr', 50], ['rr', 100]]
             # Create a scheduler object for each algorithm in list
             for algorithm in selectedAlgorithms:
                 if algorithm[ALGORITHM] != "rr":
