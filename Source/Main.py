@@ -205,7 +205,7 @@ def main():
         while isRun:
             # Get input text
             txt = input("$ >> ")
-            cmd = txt.split(" ")[0].lower()
+            cmd = txt.split("<")[0].split(" ")[0].lower()
             if cmd in cmdDict:
                 cmdDict[cmd](txt)
     except KeyboardInterrupt:
