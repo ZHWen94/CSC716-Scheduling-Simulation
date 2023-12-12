@@ -66,41 +66,47 @@ def sim(txt):
         isDetailedMode = False
         isVerboseMode = False
         selectedAlgorithms = []
+        #remove extra spaces in flags
+        flags = [i for i in flags if i != '']
         # Read flags
-        l = len(flags) - 1
+        l = len(flags)
         i = 1
-        while i < l:
+        while i < l and not isCmdInvalid:
             flag = flags[i]
             if(flag == "-d"):
                 isDetailedMode = True
             elif(flag == "-v"):
                 isVerboseMode = True
             elif(flag == "-a"):
-                # If -a is not the last element in flags, check next element
+                # while i is not the last element in flags, check next element
                 while(i != l - 1):
-                    curAlogorithm = flags[i + 1]
+                    i += 1
+                    curAlogrithm = flags[i]
                     quantumTime = 0 
-                    # If the next element is not another flag but a algorithm name, then set selected algorithm
-                    if not (curAlogorithm in SIM_FLAG_LIST):
-                        i += 1
-                        if(curAlogorithm in ALGORITHM_LIST):
-                            # If the selected algorithm is round robin, then set quantum time
-                            if(curAlogorithm == "rr" and i + 1 != l):
-                                if flags[i + 1].isnumeric():
-                                    quantumTime = int(flags[i + 1])
-                                else:
-                                    print("Error: Invalid Quantum Time in index {i} \"{j}\"".format(i=i, j=flags[i]))
-                                    isCmdInvalid = True
-                                i += 1
-                            if not isCmdInvalid:
-                                selectedAlgorithms.append([curAlogorithm, quantumTime])
-                        else:
-                            print("Error: Invalid Algorithm in index {i} \"{j}\"".format(i=i, j=flags[i]))
-                            isCmdInvalid = True
+                    # If the next element is an algorithm name, then set selected algorithm
+                    if(curAlogrithm in ALGORITHM_LIST):
+                        # If the selected algorithm is round robin, then set quantum time
+                        if(curAlogrithm == "rr" and i + 1 != l):
                             i += 1
-                            break
-                    else:
+                            if flags[i].isnumeric():
+                                quantumTime = int(flags[i])
+                            else:
+                                print("Error: Invalid Quantum Time in index {i} \"{j}\"".format(i=i, j=flags[i]))
+                                isCmdInvalid = True
+                                break
+                        if not isCmdInvalid:
+                            selectedAlgorithms.append([curAlogrithm, quantumTime])
+                    #else if statement is a flag take one step back (so outer while loop sees flag) and then break
+                    elif(curAlogrithm in SIM_FLAG_LIST):
+                        i -= 1
                         break
+                    else:
+                        print("Error: Invalid Algorithm in index {i} \"{j}\"".format(i=i, j=flags[i]))
+                        isCmdInvalid = True
+                        break
+                if len(selectedAlgorithms) == 0:
+                    print("Error: No algorithm selected.")
+                    isCmdInvalid = True
             else:
                 print("Error: Invalid flag in index {i} \"{j}\"".format(i=i, j=flags[i]))
                 isCmdInvalid = True
@@ -155,16 +161,16 @@ def setLogPath(txt):
 def help(txt):
     print("Avaliable Command:")
     print("")
-    print("sim [flags] < [input file dir]: Run simulation with specified algorithm. The default input file directory is the Dataset folder, you can simply type the file name without actual directory to open a input file in it.")
-    print(" -d: Enable detalied mode, to show all process state before and after simulation.")
+    print("sim [flags] < [input file dir]: Run simulation with specified algorithm. The default input file directory is the Dataset folder, you can simply type the file name without actual directory to open an input file in it.")
+    print(" -d: Enable detailed mode, to show all process states before and after simulation.")
     print(" -v: Enable verbose mode, to show cpu action during simulation.")
-    print(" -a [algorithm] [quantum time]: Select algorithm (fcfs, sjf, srtn, rr) to run. You can select mulitple algorithm at once.")
+    print(" -a [algorithm] [quantum time]: Select algorithm (fcfs, sjf, srtn, rr) to run. You can select multiple algorithms at once.")
     print("Example: \"sim -d -v -a rr 10 rr 20 fcfs < data.txt\"")
     print("")
     print("gen [file name]: Generate a random data set file in Dataset folder. If file no name provided, the file will generate as \"#default_process_data.txt\" in default.")
     print("Example: gen data")
     print("")
-    print("ls: Show all dataset file currently stored in the dataset folder.")
+    print("ls: Show all dataset files currently stored in the dataset folder.")
     print("")
     print("setlogpath [dir]: Change the directory to save the output log files. Use this command without a directory to reset to default directory.")
     print("Example: setlogpath C:\\Users\\admin\\Desktop")
